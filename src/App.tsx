@@ -1059,15 +1059,15 @@ export default function App() {
                   <>
                     <div className="avatar">✳</div>
                     <h3>Welcome to EMCARE</h3>
-                    <p>
-                      Account sign-in is not connected in this preview.
-                    </p>
-                    <button className="primary full" onClick={login}>
-                      <UserRound size={17} /> Sign in securely
-                    </button>
-                    <small>
-                      Live customer accounts need an authentication service to be configured.
-                    </small>
+                    <p>{authMode === 'signup' ? 'Create your customer account.' : 'Sign in to view your account and place orders.'}</p>
+                    <form className="checkout" onSubmit={e => { e.preventDefault(); void login(); }}>
+                      {authMode === 'signup' && <label>Full name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Your full name" /></label>}
+                      <label>Email<input type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="you@example.com" /></label>
+                      <label>Password<input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={8} value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="At least 8 characters" /></label>
+                      <button className="primary full" disabled={busy}>{busy ? 'Please wait…' : authMode === 'signup' ? 'Create account' : 'Sign in'}</button>
+                    </form>
+                    <button className="text-button" onClick={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setError(''); }}>{authMode === 'signup' ? 'Already have an account? Sign in' : 'New to EMCARE? Create an account'}</button>
+                    {!isSupabaseConfigured && <small>Supabase setup is required before accounts can be used.</small>}
                     {error && <div className="error">{error}</div>}
                   </>
                 )}
@@ -1082,10 +1082,10 @@ export default function App() {
             <div className="success-icon">
               <CheckCircle2 size={31} />
             </div>
-            <div className="eyebrow">DEMO ORDER RECEIVED</div>
+            <div className="eyebrow">ORDER SAVED</div>
             <h2>Thanks, {form.name.split(' ')[0]}.</h2>
             <p>
-              This is a local preview reference only. No order was sent to the store and no payment was taken.
+              Your order has been saved to EMCARE. The store will confirm availability and payment arrangements.
             </p>
             <div className="reference">
               <small>Order reference</small>
@@ -1095,7 +1095,7 @@ export default function App() {
               <span>Order total</span>
               <b>{money(order.total)}</b>
             </div>
-            <div className="pending">● Demo order · {order.paymentStatus}</div>
+            <div className="pending">● Order status · {order.paymentStatus}</div>
             <button
               className="primary full"
               onClick={() => {
