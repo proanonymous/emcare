@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '@appdeploy/client';
-import { auth } from '@appdeploy/client';
 import {
   Search,
   ShoppingBag,
@@ -295,21 +293,7 @@ export default function App() {
     notify('Added to your bag');
   };
   const login = async () => {
-    try {
-      const r = await auth.signIn();
-      setUser({ name: r.user.name, email: r.user.email });
-      setPanel(null);
-      notify('Welcome to EMCARE');
-    } catch (e) {
-      const code = (e as { code?: string })?.code;
-      setError(
-        code === 'popup_blocked'
-          ? 'Allow pop-ups to sign in.'
-          : code === 'popup_closed'
-            ? 'Sign-in was cancelled.'
-            : 'Sign-in is not available right now.'
-      );
-    }
+    setError('Account sign-in is not configured in this preview yet.');
   };
   const placeOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,13 +311,9 @@ export default function App() {
     }
     setBusy(true);
     try {
-      const r = await api.post('/api/orders', {
-        customer: form,
-        items: products
-          .filter(p => cart[p.id])
-          .map(p => ({ productId: p.id, quantity: cart[p.id] })),
-      });
-      setOrder(r.data);
+      // Preview-only order reference. No server request or real order submission occurs.
+      const orderId = 'EM-' + Date.now().toString(36).toUpperCase();
+      setOrder({ orderId, total, paymentStatus: 'Not paid — preview only' });
       setCart({});
       setPanel(null);
     } catch {
@@ -1016,7 +996,6 @@ export default function App() {
                     <button
                       className="primary full"
                       onClick={async () => {
-                        await auth.signOut();
                         setUser(null);
                         setPanel(null);
                         notify('Signed out');
@@ -1030,13 +1009,13 @@ export default function App() {
                     <div className="avatar">✳</div>
                     <h3>Welcome to EMCARE</h3>
                     <p>
-                      Sign in securely to personalise your shopping experience.
+                      Account sign-in is not connected in this preview.
                     </p>
                     <button className="primary full" onClick={login}>
                       <UserRound size={17} /> Sign in securely
                     </button>
                     <small>
-                      Uses a secure AppDeploy authentication window.
+                      Live customer accounts need an authentication service to be configured.
                     </small>
                     {error && <div className="error">{error}</div>}
                   </>
@@ -1055,8 +1034,7 @@ export default function App() {
             <div className="eyebrow">DEMO ORDER RECEIVED</div>
             <h2>Thanks, {form.name.split(' ')[0]}.</h2>
             <p>
-              Your demo order has been recorded. No payment was taken and the
-              store has not confirmed fulfilment.
+              This is a local preview reference only. No order was sent to the store and no payment was taken.
             </p>
             <div className="reference">
               <small>Order reference</small>
