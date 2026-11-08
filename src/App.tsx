@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   Search,
   ShoppingBag,
@@ -235,9 +236,10 @@ export default function App() {
   const [dark, setDark] = useState(() => localStorage.getItem('emcare-theme') === 'dark');
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
-  const [user, setUser] = useState<{ name?: string; email?: string } | null>(
-    null
-  );
+  const [user, setUser] = useState<{ id: string; name?: string; email?: string } | null>(null);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -262,6 +264,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('emcare-cart', JSON.stringify(cart));
   }, [cart]);
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      const account = data.session?.user;
+      if (account) setUser({ id: account.id, email: account.email, name: account.user_metadata?.full_name });
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const account = session?.user;
+      setUser(account ? { id: account.id, email: account.email, name: account.user_metadata?.full_name } : null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
   useEffect(() => {
     localStorage.setItem('emcare-theme', dark ? 'dark' : 'light');
   }, [dark]);
@@ -293,7 +307,33 @@ export default function App() {
     notify('Added to your bag');
   };
   const login = async () => {
-    setError('Account sign-in is not configured in this preview yet.');
+    setError('');
+    if (!supabase || !isSupabaseConfigured) {
+      setError('Connect Supabase using the environment variables in .env.example, then redeploy.');
+      return;
+    }
+    if (!authEmail.trim() || authPassword.length < 8) {
+      setError('Enter a valid email and a password with at least 8 characters.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = authMode === 'signup'
+        ? await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword, options: { data: { full_name: form.name.trim() || undefined } } })
+        : await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+      if (result.error) throw result.error;
+      if (result.data.user && !result.data.session && authMode === 'signup') {
+        setError('Account created. Check your email to confirm it, then sign in.');
+      } else if (result.data.user) {
+        setUser({ id: result.data.user.id, email: result.data.user.email, name: result.data.user.user_metadata?.full_name });
+        setError('');
+        notify(authMode === 'signup' ? 'Account created' : 'Signed in successfully');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
   const placeOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,17 +349,27 @@ export default function App() {
       );
       return;
     }
+    if (!supabase || !user) {
+      setError('Please sign in before placing an order.');
+      setPanel('account');
+      return;
+    }
     setBusy(true);
     try {
-      // Preview-only order reference. No server request or real order submission occurs.
       const orderId = 'EM-' + Date.now().toString(36).toUpperCase();
-      setOrder({ orderId, total, paymentStatus: 'Not paid — preview only' });
+      const items = products.filter(p => cart[p.id]).map(p => ({ product_id: p.id, name: p.name, unit_price: p.price, quantity: cart[p.id] }));
+      const { error: orderError } = await supabase.from('orders').insert({
+        user_id: user.id, order_number: orderId, customer_name: form.name.trim(),
+        phone: form.phone.trim(), email: form.email.trim() || user.email || null,
+        delivery_address: form.address.trim(), city: form.city.trim(), items,
+        subtotal, delivery_fee: delivery, total, status: 'pending', payment_status: 'unpaid'
+      });
+      if (orderError) throw orderError;
+      setOrder({ orderId, total, paymentStatus: 'Unpaid — awaiting store confirmation' });
       setCart({});
       setPanel(null);
-    } catch {
-      setError(
-        'We could not save this demo order. No payment was taken. Please try again.'
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'We could not save your order. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -996,6 +1046,7 @@ export default function App() {
                     <button
                       className="primary full"
                       onClick={async () => {
+                        if (supabase) await supabase.auth.signOut();
                         setUser(null);
                         setPanel(null);
                         notify('Signed out');
@@ -1008,15 +1059,15 @@ export default function App() {
                   <>
                     <div className="avatar">✳</div>
                     <h3>Welcome to EMCARE</h3>
-                    <p>
-                      Account sign-in is not connected in this preview.
-                    </p>
-                    <button className="primary full" onClick={login}>
-                      <UserRound size={17} /> Sign in securely
-                    </button>
-                    <small>
-                      Live customer accounts need an authentication service to be configured.
-                    </small>
+                    <p>{authMode === 'signup' ? 'Create your customer account.' : 'Sign in to view your account and place orders.'}</p>
+                    <form className="checkout" onSubmit={e => { e.preventDefault(); void login(); }}>
+                      {authMode === 'signup' && <label>Full name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Your full name" /></label>}
+                      <label>Email<input type="email" autoComplete="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required placeholder="you@example.com" /></label>
+                      <label>Password<input type="password" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={8} value={authPassword} onChange={e => setAuthPassword(e.target.value)} required placeholder="At least 8 characters" /></label>
+                      <button className="primary full" disabled={busy}>{busy ? 'Please wait…' : authMode === 'signup' ? 'Create account' : 'Sign in'}</button>
+                    </form>
+                    <button className="text-button" onClick={() => { setAuthMode(authMode === 'signup' ? 'signin' : 'signup'); setError(''); }}>{authMode === 'signup' ? 'Already have an account? Sign in' : 'New to EMCARE? Create an account'}</button>
+                    {!isSupabaseConfigured && <small>Supabase setup is required before accounts can be used.</small>}
                     {error && <div className="error">{error}</div>}
                   </>
                 )}
@@ -1031,10 +1082,10 @@ export default function App() {
             <div className="success-icon">
               <CheckCircle2 size={31} />
             </div>
-            <div className="eyebrow">DEMO ORDER RECEIVED</div>
+            <div className="eyebrow">ORDER SAVED</div>
             <h2>Thanks, {form.name.split(' ')[0]}.</h2>
             <p>
-              This is a local preview reference only. No order was sent to the store and no payment was taken.
+              Your order has been saved to EMCARE. The store will confirm availability and payment arrangements.
             </p>
             <div className="reference">
               <small>Order reference</small>
@@ -1044,7 +1095,7 @@ export default function App() {
               <span>Order total</span>
               <b>{money(order.total)}</b>
             </div>
-            <div className="pending">● Demo order · {order.paymentStatus}</div>
+            <div className="pending">● Order status · {order.paymentStatus}</div>
             <button
               className="primary full"
               onClick={() => {
