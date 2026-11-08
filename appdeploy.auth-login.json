@@ -1,0 +1,14 @@
+{
+  "methods": ["google", "email"],
+  "headline": "Welcome to EMCARE",
+  "subtitle": "Sign in securely to your everyday essentials store.",
+  "style": {
+    "mode": "light",
+    "accentColor": "#176d4a",
+    "backgroundColor": "#f4faf6",
+    "panelColor": "#ffffff",
+    "textColor": "#173c31",
+    "fontFamily": "DM Sans, system-ui, sans-serif",
+    "borderRadius": 16
+  }
+}

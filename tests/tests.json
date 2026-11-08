@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Open dedicated Products page and browse all products",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "dedicated products page route",
+      "all product cards",
+      "search",
+      "category filters",
+      "sorting"
+    ],
+    "description": "Verifies the separate Products page can be opened and used to find products.",
+    "steps": [
+      "Open the Products link in the navigation",
+      "Search for shampoo",
+      "Change the category or sort order"
+    ],
+    "expected": "The dedicated Products view displays the catalogue and updates the results based on search, category and sort."
+  },
+  {
+    "name": "Add a product from the Products page to the shared bag",
+    "viewport": "mobile",
+    "covers": [
+      "products page add-to-bag",
+      "shared cart state",
+      "mobile layout"
+    ],
+    "description": "Verifies a product selected on the dedicated page appears in the same shopping bag.",
+    "steps": [
+      "Open Products on a mobile viewport",
+      "Add an item using its plus button",
+      "Open the shopping bag"
+    ],
+    "expected": "The bag count increases and the selected item is listed in the shared cart."
+  },
+  {
+    "name": "Return to homepage from Products page",
+    "viewport": "desktop",
+    "covers": [
+      "products-to-home navigation",
+      "home page visibility"
+    ],
+    "description": "Verifies shoppers can navigate between the dedicated product catalogue and the homepage.",
+    "steps": [
+      "Open the Products page",
+      "Tap Home in the navigation"
+    ],
+    "expected": "The homepage sections appear and the Products view is no longer shown."
+  },
+  {
+    "name": "Validate checkout remains demo-only",
+    "viewport": "mobile",
+    "covers": [
+      "demo checkout disclosure",
+      "required checkout fields",
+      "no-payment guardrail"
+    ],
+    "description": "Verifies the Products page uses the existing shared cart and checkout safety disclosures.",
+    "steps": [
+      "Add a product from Products",
+      "Open the bag and continue to checkout",
+      "Submit without required details"
+    ],
+    "expected": "Checkout shows validation and clearly states that no payment is collected."
+  }
+]
